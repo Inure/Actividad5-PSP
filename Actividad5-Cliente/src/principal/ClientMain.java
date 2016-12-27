@@ -16,6 +16,7 @@ package principal;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.logging.Level;
@@ -51,7 +52,7 @@ public class ClientMain {
     /**
      * Pequeña función que se usa sólo para cerrar las conexiones E/S.
      */
-    public void cierreConexion(){
+    private void cierreConexion(){
 
         try {
             flujo_entrada.close();
@@ -63,7 +64,7 @@ public class ClientMain {
         }
     }
     
-    public void menuPrincipal(){
+    private void menuPrincipal(){
         System.out.println("********************************************");
         System.out.println("*      M E N U       P R I N C I P A L     *");
         System.out.println("********************************************");
@@ -73,20 +74,40 @@ public class ClientMain {
         System.out.println("********************************************");
     }
     
-    public void menuUsuario(){
+    private void menuUsuario(){
         System.out.println(" ");
         System.out.println("********************************************");
         System.out.println("*  U S U A R I O      R E G I S T R A D O  *");
         System.out.println("********************************************");
     }
     
-    public void menuRegistro() {
+    private void menuRegistro() {
         System.out.println(" ");
         System.out.println(" ");
         System.out.println(" ");
         System.out.println("********************************************");
         System.out.println("*     R E G I S T R O    U S U A R I O     *");
         System.out.println("********************************************");
+    }
+    
+    private void enviarT(String texto){
+        try {
+            flujo_salida.writeUTF(texto);
+            flujo_salida.flush();
+        } catch (IOException ex) {
+            System.err.println(ex);
+            Logger.getLogger(ClientMain.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void enviarN (int num){
+        try {
+            flujo_salida.writeInt(num);
+            flujo_salida.flush();
+        } catch (IOException ex) {
+            System.err.println(ex);
+            Logger.getLogger(ClientMain.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
     public ClientMain(){
@@ -103,7 +124,7 @@ public class ClientMain {
                 menuPrincipal();
                 System.out.print("Introduzca la opción deseada: ");
                 op1 = entrada.nextInt();
-
+        
                 switch (op1){
                     case 1:
                         System.out.println("Ha elegido registrar su usuario.");
@@ -137,8 +158,7 @@ public class ClientMain {
             if (op1 == 3) {
                 //Le comunicamos la opción deseada al servidor
                 System.out.println("-> Cerramos la conexión.");
-                flujo_salida.writeInt(op1);
-                flujo_salida.flush();
+                enviarN(op1);
                 cierreConexion();
             }
             
@@ -149,8 +169,7 @@ public class ClientMain {
                 paso = false;
                 
                 //Le comunicamos la opción deseada al servidor
-                flujo_salida.writeInt(op1);
-                flujo_salida.flush();
+                enviarN(op1);
                 
                 do {
                     contador1++;
@@ -175,10 +194,8 @@ public class ClientMain {
 
                             contador1 = 0;
                             //Enviamos los datos
-                            flujo_salida.writeUTF(usuario);
-                            flujo_salida.flush();
-                            flujo_salida.writeUTF(pass);
-                            flujo_salida.flush();
+                            enviarT(usuario);
+                            enviarT(pass);
 
                             //Recibimos la validación
                             op2 = flujo_entrada.readInt();
@@ -213,10 +230,8 @@ public class ClientMain {
                     } else {
                         System.out.println("Saliendo..... ");
                         contador1 = 4;
-                        flujo_salida.writeUTF(usuario);
-                        flujo_salida.flush();
-                        flujo_salida.writeUTF("salir");
-                        flujo_salida.flush();
+                        enviarT(usuario);
+                        enviarT("salir");
                     }
                     
                 } while ((contador1 < 3) & (!paso));
@@ -227,8 +242,7 @@ public class ClientMain {
             
             if (op1 == 1){
                 //Le comunicamos la opción deseada al servidor
-                flujo_salida.writeInt(op1);
-                flujo_salida.flush();
+                enviarN(op1);
                 
                 menuRegistro();
                 System.out.println("Introduzca el usuario que desea (8 letras minúsculas): ");

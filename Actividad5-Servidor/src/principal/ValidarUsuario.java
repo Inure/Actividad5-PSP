@@ -13,9 +13,14 @@ package principal;
 public class ValidarUsuario {
     private String usuario;
     private String contrasena;
+    private int id;
     
     String [] usuarios = {"pruebass", "ceripper", "tercerod"};
     String [] contrasenas = {"prueba", "123456", "3dam"};
+    //Tipo 1 = usuario 
+    //Tipo 2 = administrador
+    int [] tipo = {1,2,1};
+    
     
     public ValidarUsuario(String usuario, String contra){
         this.usuario = usuario;
@@ -29,6 +34,7 @@ public class ValidarUsuario {
             
             if ((usuarios[i].matches(usuario)) && (contrasenas[i].matches(contrasena))) {
                 validado = true;
+                setId(i);
             }
             
         }
@@ -36,4 +42,17 @@ public class ValidarUsuario {
         return validado;
     }
 
+    /**
+     * @return the id
+     */
+    public int getId() {
+        return id;
+    }
+
+    /**
+     * @param id the id to set
+     */
+    private void setId(int id) {
+        this.id = id;
+    }
 }

@@ -19,8 +19,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 /**
  * @author C.RipPer
@@ -37,7 +39,11 @@ public class ServerMain extends Thread{
     DataInputStream flujo_entrada;
     DataOutputStream flujo_salida;
     Socket skClient;
+    //Variables del LOGGER
+    static Logger LOGGER = Logger.getLogger("ServidorLog");;
+    static FileHandler fh;
     //Variables de trabajo
+    static int nCli = 0;
     int op1;
     int contador = 0;
     boolean validado = false;
@@ -49,7 +55,7 @@ public class ServerMain extends Thread{
     /**
      * Pequeña función que se usa sólo para cerrar las conexiones E/S.
      */
-    public void cierreConexion(){
+    private void cierreConexion(){
 
         try {
             flujo_entrada.close();
@@ -57,11 +63,21 @@ public class ServerMain extends Thread{
             skClient.close();
         } catch (IOException ex) {
             System.err.println(ex);
-            //Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ServerMain.class.getName()).LOGGER(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void enviarN(int num){
+        try {
+            flujo_salida.writeInt(num);
+            flujo_salida.flush();
+        } catch (IOException ex) {
+            System.err.println(ex);
+            Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public ServerMain(Socket skCliente){
+    private ServerMain(Socket skCliente){
         //Constructor
         this.skClient = skCliente;
     }
@@ -77,11 +93,20 @@ public class ServerMain extends Thread{
             addr = new InetSocketAddress(address, port);
             skServer.bind(addr);
             
+            //Activamos el LOGGER
+            fh = new FileHandler("./estado.log", true); //Quiero el log en archivo
+            fh.setLevel(Level.ALL); //Como estoy probando, activo el registrar todos los eventos
+            LOGGER.setUseParentHandlers(false); //No queremos que muestre la información por pantalla
+            SimpleFormatter formatter = new SimpleFormatter();
+            fh.setFormatter(formatter);//Formateamos la entrada de información en el archivo
+            LOGGER.addHandler(fh); //Comunicamos al logger la existencia del FileHandler (archivo log)
             
             while (true){ //Se ha puesto una conexión sin límite
                 //Se aceptan conexiones
                 Socket skCliente = skServer.accept();
-                System.out.println("-> Cliente conectado");
+                nCli++;
+                System.out.println("-> Cliente conectado número "+nCli);
+                LOGGER.log(Level.INFO, "Cliente conectado");
                 
                 //Se abre un hilo por cada cliente
                 new ServerMain(skCliente).start();
@@ -120,11 +145,11 @@ public class ServerMain extends Thread{
                             validado = user.comprobacion();
 
                             if (validado){
-                                flujo_salida.writeInt(0);
-                                flujo_salida.flush();
+                                enviarN(0);
+                                LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
                             } else {
-                                flujo_salida.writeInt(1);
-                                flujo_salida.flush();
+                                enviarN(1);
+                                LOGGER.log(Level.WARNING, "Intento de Log fallido "+ usuario + skClient.getRemoteSocketAddress());
                             }
  
                         } else {
@@ -139,8 +164,7 @@ public class ServerMain extends Thread{
                     } while ((!validado) & (contador < 3));
                     
                     if (contador == 3){
-                        flujo_salida.writeInt(3);
-                        flujo_salida.flush();
+                        enviarN(3);
                     }
 
                     System.out.println("-> Cerramos la conexión");
