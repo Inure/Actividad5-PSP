@@ -1,0 +1,2 @@
+Fichero de administrador
+archi01.txt

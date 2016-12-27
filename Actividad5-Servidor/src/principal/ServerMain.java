@@ -13,8 +13,11 @@ datos de entrada y llevar un registro de la actividad del programa.
 
 package principal;
 
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -44,11 +47,10 @@ public class ServerMain extends Thread{
     static FileHandler fh;
     //Variables de trabajo
     static int nCli = 0;
-    int op1;
-    int contador = 0;
-    boolean validado = false;
-    String usuario;
-    String pass;
+    int op1, contador = 0;
+    boolean validado = false, siNO = false, existe = false;
+    String usuario, pass, directorio, fichero;
+    File [] listaArchivos;
     //*************************************
 
 
@@ -77,6 +79,26 @@ public class ServerMain extends Thread{
         }
     }
 
+    private void enviarT(String texto){
+        try {
+            flujo_salida.writeUTF(texto);
+            flujo_salida.flush();
+        } catch (IOException ex) {
+            System.err.println(ex);
+            Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void enviarB(boolean siNO){
+        try {
+            flujo_salida.writeBoolean(siNO);
+            flujo_salida.flush();
+        } catch (IOException ex) {
+            System.err.println(ex);
+            Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
     private ServerMain(Socket skCliente){
         //Constructor
         this.skClient = skCliente;
@@ -147,8 +169,13 @@ public class ServerMain extends Thread{
                             if (validado){
                                 enviarN(0);
                                 System.out.println("-> Login correcto.");
-                                System.out.println(user.getTipo());
                                 LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
+                                //Primero seleccionamos la carpeta según tipo de usuario
+                                if (user.getTipo()==2){
+                                    directorio = "./admin";
+                                } else {
+                                    directorio = "./usuario";
+                                }
                             } else {
                                 enviarN(1);
                                 LOGGER.log(Level.WARNING, "->Intento de Log fallido ("+ 
@@ -169,14 +196,93 @@ public class ServerMain extends Thread{
                     if (contador == 3){
                         enviarN(3);
                     }
+                    
+                    //Una vez validado comenzamos el tratamiento de ficheros
+                    //Primero enviamos sólo el listado
+                    if (validado) {
+                        //Enviamos el listado de archivos de la carpeta correspondiente
+                        //Conseguimos el listado de archivos
+                        File busqueda = new File (directorio);
+                        listaArchivos = busqueda.listFiles();
 
-                    System.out.println("-> Cerramos la conexión");
-                    cierreConexion();
+                        //Comunicamos el número de archivos
+                        enviarN(listaArchivos.length);
+                        //Enviamos el listado de archivos
+                        System.out.println(" ");
+                        System.out.println("-> Enviamos la lista de archivos");
+                        for (File archivo:listaArchivos){
+                            enviarT(archivo.getName());
+                        }
+                    }
                     break;
                 case 3:
                     System.out.println("-> El usuario ha salido del programa");
                     cierreConexion();
                     break;
+            }
+            
+            //Comenzamos la validación de los ficheros para enviarlo
+            if (validado){
+                //Iniciamos el contador de nuevo para la validación de archivos
+                contador = 0;
+                do {                   
+                    contador++;
+                    
+                    siNO = flujo_entrada.readBoolean();
+                    //Si quiere el archivo
+                    if (siNO){
+                        fichero = flujo_entrada.readUTF();//Recibimos el nombre
+                        System.out.println(" ");
+                        System.out.println("Archivo solicitado "+fichero);
+
+                        for(File elemento:listaArchivos){
+                            if (elemento.getName().matches(fichero)){
+                                existe = true;
+                            }  
+                        }
+                        
+                        if (existe){
+                            enviarB(true); //Indicamos que sí existe y salimos del bucle
+                            System.out.println("-> El archivo existe.");
+                        } else {
+                            contador++;
+                            enviarB(false); //Indicamos que no existe
+                            System.out.println("-> El archivo no existe.");
+                            
+                            if (contador<3){
+                                System.out.println("-> Introduzca otro nombre de archivo.");
+                            }
+                            if (contador == 3){
+                                System.out.println("-> Demasiados intentos.");
+                            }
+                        }
+                        
+                    } else {
+                        contador = 4; //Para salir del bucle
+                        System.out.println("-> El usuario no quiere archivo.");
+                    }
+                } while ((!existe)&(contador<3));
+                
+                if (existe){
+                    File archivo = new File (fichero);
+                    int tam = (int) archivo.length();
+
+                    //Enviamos el tamaño del archivo
+                    enviarN(tam);
+
+                    byte [] buffer = new byte [tam];
+                    FileInputStream entradaFichero = new FileInputStream(archivo.getName());
+                    BufferedInputStream bufferEntrada = new BufferedInputStream(entradaFichero);
+                    bufferEntrada.read(buffer);
+
+                    for (int i = 0; i < tam; i++) {
+                        flujo_salida.write(buffer[i]);
+                        flujo_salida.flush();
+                    }
+                    System.out.println("-> Enviado archivo solicitado");
+                }
+                System.out.println("-> Cerramos la conexión");
+                cierreConexion();
             }
             
         } catch (IOException ex) {

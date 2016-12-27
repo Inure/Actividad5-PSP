@@ -48,9 +48,8 @@ public class ValidarUsuario {
                         .map(columns -> columns[2])
                         .findFirst().toString();
                 }
-                
-                //Hago esta distinción porque el tipo me lo pone dentro del Optional[]
-                if (tipoS.equals("Optional[2]")){
+                //He tenido que poner esto, porque no me acepta simplemente el .toString();
+                if (tipoS.contains("Optional[2]")){
                     setTipo(2);
                 } else {
                     setTipo(1);
