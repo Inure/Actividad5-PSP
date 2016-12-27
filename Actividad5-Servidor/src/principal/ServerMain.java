@@ -93,8 +93,8 @@ public class ServerMain extends Thread{
             addr = new InetSocketAddress(address, port);
             skServer.bind(addr);
             
-            //Activamos el LOGGER
-            fh = new FileHandler("./estado.log", true); //Quiero el log en archivo
+            //Activamos el LOGGER y asignamos archivo
+            fh = new FileHandler("./log/estado.log", true); //Quiero el log en archivo
             fh.setLevel(Level.ALL); //Como estoy probando, activo el registrar todos los eventos
             LOGGER.setUseParentHandlers(false); //No queremos que muestre la información por pantalla
             SimpleFormatter formatter = new SimpleFormatter();
@@ -146,10 +146,13 @@ public class ServerMain extends Thread{
 
                             if (validado){
                                 enviarN(0);
+                                System.out.println("-> Login correcto.");
+                                System.out.println(user.getTipo());
                                 LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
                             } else {
                                 enviarN(1);
-                                LOGGER.log(Level.WARNING, "Intento de Log fallido "+ usuario + skClient.getRemoteSocketAddress());
+                                LOGGER.log(Level.WARNING, "->Intento de Log fallido ("+ 
+                                        usuario + skClient.getRemoteSocketAddress()+")");
                             }
  
                         } else {
