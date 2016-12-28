@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.function.Supplier;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,24 +36,23 @@ public class ServerMain extends Thread{
     
     //*************************************
     //Datos de la conexión
-    private static final int port = 3000;
-    private static final String address = "127.0.0.1";
+    private static final int puerto = 3000;
+    private static final String direccion = "127.0.0.1";
     //Variables IN/OUT (E/S)
     static InetSocketAddress addr;
     DataInputStream flujo_entrada;
     DataOutputStream flujo_salida;
     Socket skClient;
     //Variables del LOGGER
-    static Logger LOGGER = Logger.getLogger("ServidorLog");;
-    static FileHandler fh;
+    private static final Logger LOGGER = Logger.getLogger("ServidorLog");;
+    private static FileHandler fh;
     //Variables de trabajo
     static int nCli = 0;
-    int op1, contador = 0;
-    boolean validado = false, siNO = false, existe = false;
+    int opcion, contador = 0;
+    boolean validado = false, siNO = false, existe = false, paso = false, salir = false;
     String usuario, pass, directorio, fichero;
     File [] listaArchivos;
     //*************************************
-
 
     /**
      * Pequeña función que se usa sólo para cerrar las conexiones E/S.
@@ -69,6 +69,10 @@ public class ServerMain extends Thread{
         }
     }
     
+    /**
+     * Pequeña función para eliminar lineas del programa principal
+     * @param num 
+     */
     private void enviarN(int num){
         try {
             flujo_salida.writeInt(num);
@@ -79,6 +83,10 @@ public class ServerMain extends Thread{
         }
     }
 
+    /**
+     * Pequeña función para eliminar lineas del programa principal
+     * @param texto 
+     */
     private void enviarT(String texto){
         try {
             flujo_salida.writeUTF(texto);
@@ -89,6 +97,10 @@ public class ServerMain extends Thread{
         }
     }
     
+    /**
+     * Pequeña función para eliminar lineas del programa principal
+     * @param siNO 
+     */
     private void enviarB(boolean siNO){
         try {
             flujo_salida.writeBoolean(siNO);
@@ -99,6 +111,31 @@ public class ServerMain extends Thread{
         }
     }
     
+    /**
+     * Pequeña función que nos da el directorio al que está autorizado el usuario
+     * @param num
+     * @return 
+     */
+    private String directorioUsuario(int num){
+        String dir;
+        switch(num){
+            case 1:
+                dir = "./usuario";
+                break;
+            case 2:
+                dir = "./admin";
+                break;
+            default:
+                dir = "./usuario";
+                break;
+        }
+        return dir;
+    }
+    
+    /**
+     * Constructor de la clase
+     * @param skCliente 
+     */
     private ServerMain(Socket skCliente){
         //Constructor
         this.skClient = skCliente;
@@ -111,13 +148,14 @@ public class ServerMain extends Thread{
         try {
             //Inicio del servidor en el puerto
             ServerSocket skServer = new ServerSocket ();
-            System.out.println("-> Escuchando el puerto "+port);
-            addr = new InetSocketAddress(address, port);
+            addr = new InetSocketAddress(direccion, puerto);
             skServer.bind(addr);
+            
+            System.out.println("-> Escuchando el puerto "+puerto);
             
             //Activamos el LOGGER y asignamos archivo
             fh = new FileHandler("./log/estado.log", true); //Quiero el log en archivo
-            fh.setLevel(Level.ALL); //Como estoy probando, activo el registrar todos los eventos
+            fh.setLevel(Level.INFO); //Como estoy probando, activo el registrar todos los eventos
             LOGGER.setUseParentHandlers(false); //No queremos que muestre la información por pantalla
             SimpleFormatter formatter = new SimpleFormatter();
             fh.setFormatter(formatter);//Formateamos la entrada de información en el archivo
@@ -125,9 +163,10 @@ public class ServerMain extends Thread{
             
             while (true){ //Se ha puesto una conexión sin límite
                 //Se aceptan conexiones
-                Socket skCliente = skServer.accept();
                 nCli++;
+                Socket skCliente = skServer.accept();
                 System.out.println("-> Cliente conectado número "+nCli);
+                
                 LOGGER.log(Level.INFO, "Cliente conectado");
                 
                 //Se abre un hilo por cada cliente
@@ -135,8 +174,8 @@ public class ServerMain extends Thread{
             }
         } catch (IOException ex){
             System.err.println(ex);
+            LOGGER.log(Level.WARNING, "Error detectado "+ex);
         }
-        
     }
 
     @Override
@@ -149,85 +188,80 @@ public class ServerMain extends Thread{
             flujo_salida = new DataOutputStream (skClient.getOutputStream());
             
             //Recibimos la opción dada por el cliente
-            op1 = flujo_entrada.readInt();
-            switch (op1){
+            opcion = flujo_entrada.readInt();
+            
+            switch (opcion){
                 case 1:
                     System.out.println("-> Registro de usuario nuevo");
                     break;
                 case 2:
-                    System.out.println("-> Login usuario registrado");
-                    
-                    do {
-                        contador++;
-                        usuario = flujo_entrada.readUTF();
-                        pass = flujo_entrada.readUTF();
-                        
-                        if (!usuario.equalsIgnoreCase("n")){
-                            ValidarUsuario user = new ValidarUsuario (usuario, pass);
-                            validado = user.comprobacion();
-
-                            if (validado){
-                                enviarN(0);
-                                System.out.println("-> Login correcto.");
-                                LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
-                                //Primero seleccionamos la carpeta según tipo de usuario
-                                if (user.getTipo()==2){
-                                    directorio = "./admin";
-                                } else {
-                                    directorio = "./usuario";
-                                }
-                            } else {
-                                enviarN(1);
-                                LOGGER.log(Level.WARNING, "->Intento de Log fallido ("+ 
-                                        usuario + skClient.getRemoteSocketAddress()+")");
-                            }
- 
-                        } else {
-                            System.out.println("-> El usuario ha cerrado la sesión.");
-                            contador = 4;
-                        }
-
-                        if (contador == 3){
-                            System.out.println("-> Demasiados intentos.");
-                        }
-                        
-                    } while ((!validado) & (contador < 3));
-                    
-                    if (contador == 3){
-                        enviarN(3);
-                    }
-                    
-                    //Una vez validado comenzamos el tratamiento de ficheros
-                    //Primero enviamos sólo el listado
-                    if (validado) {
-                        //Enviamos el listado de archivos de la carpeta correspondiente
-                        //Conseguimos el listado de archivos
-                        File busqueda = new File (directorio);
-                        listaArchivos = busqueda.listFiles();
-
-                        //Comunicamos el número de archivos
-                        enviarN(listaArchivos.length);
-                        //Enviamos el listado de archivos
-                        System.out.println(" ");
-                        System.out.println("-> Enviamos la lista de archivos");
-                        for (File archivo:listaArchivos){
-                            enviarT(archivo.getName());
-                        }
-                    }
+                    System.out.println("-> El usuario desea logear");
+                    paso = true;
                     break;
                 case 3:
                     System.out.println("-> El usuario ha salido del programa");
-                    cierreConexion();
+                    salir = true;
                     break;
+            }
+            
+            if (paso){
+                do {
+                    contador++;
+                    usuario = flujo_entrada.readUTF();
+                    pass = flujo_entrada.readUTF();
+
+                    if (!usuario.equalsIgnoreCase("n")){
+                        ValidarUsuario user = new ValidarUsuario (usuario, pass);
+                        validado = user.comprobacion();
+
+                        if (validado){
+                            enviarN(0);
+                            System.out.println("-> Login correcto.");
+                            LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
+
+                            //Seleccionamos la carpeta según tipo de usuario
+                            directorio = directorioUsuario(user.getTipo());
+
+                        } else {
+                            System.out.println("-> Login incorrecto.");
+                            enviarN(1);
+                            LOGGER.log(Level.WARNING, "->Intento de Log fallido ("+ 
+                                    usuario + skClient.getRemoteSocketAddress()+")");
+                        }
+
+                    } else {
+                        System.out.println("-> El usuario ha cerrado la sesión.");
+                        contador = 4; //Para salir del bucle
+                        salir = true; 
+                    }
+
+                    if (contador == 3){
+                        System.out.println("-> Demasiados intentos.");
+                        enviarN(3);
+                        salir = true;
+                    }
+                } while ((!validado) & (contador < 3));
             }
             
             //Comenzamos la validación de los ficheros para enviarlo
             if (validado){
+                
+                //Enviamos el listado de archivos de la carpeta correspondiente
+                //Conseguimos el listado de archivos
+                File busqueda = new File (directorio);
+                listaArchivos = busqueda.listFiles();
+
+                //Comunicamos el número de archivos
+                enviarN(listaArchivos.length);
+                //Enviamos el listado de archivos
+                System.out.println(" ");
+                System.out.println("-> Enviamos la lista de archivos");
+                for (File archivo:listaArchivos){
+                    enviarT(archivo.getName());
+                }
                 //Iniciamos el contador de nuevo para la validación de archivos
                 contador = 0;
                 do {                   
-                    contador++;
-                    
                     siNO = flujo_entrada.readBoolean();
                     //Si quiere el archivo
                     if (siNO){
@@ -249,29 +283,32 @@ public class ServerMain extends Thread{
                             enviarB(false); //Indicamos que no existe
                             System.out.println("-> El archivo no existe.");
                             
+                            
                             if (contador<3){
                                 System.out.println("-> Introduzca otro nombre de archivo.");
                             }
                             if (contador == 3){
                                 System.out.println("-> Demasiados intentos.");
+                                salir = true;
                             }
                         }
                         
                     } else {
                         contador = 4; //Para salir del bucle
                         System.out.println("-> El usuario no quiere archivo.");
+                        salir = true;
                     }
                 } while ((!existe)&(contador<3));
                 
                 if (existe){
-                    File archivo = new File (fichero);
+                    File archivo = new File (directorio, fichero);
                     int tam = (int) archivo.length();
 
                     //Enviamos el tamaño del archivo
                     enviarN(tam);
 
                     byte [] buffer = new byte [tam];
-                    FileInputStream entradaFichero = new FileInputStream(archivo.getName());
+                    FileInputStream entradaFichero = new FileInputStream(archivo.getPath());
                     BufferedInputStream bufferEntrada = new BufferedInputStream(entradaFichero);
                     bufferEntrada.read(buffer);
 
@@ -281,7 +318,10 @@ public class ServerMain extends Thread{
                     }
                     System.out.println("-> Enviado archivo solicitado");
                 }
-                System.out.println("-> Cerramos la conexión");
+            }
+            
+            if (salir){
+                System.out.println("-> Cerramos la conexión del Cliente "+nCli);
                 cierreConexion();
             }
             
