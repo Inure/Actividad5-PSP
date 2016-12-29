@@ -224,7 +224,7 @@ public class ServerMain extends Thread{
                             directorio = directorioUsuario(user.getTipo());
 
                         } else {
-                            System.out.println("-> Login incorrecto.");
+                            System.err.println("-> Login incorrecto.");
                             enviarN(1);
                             LOGGER.log(Level.WARNING, "->Intento de Log fallido"
                                     + " ({0}{1})", new Object[]{usuario, skClient.getRemoteSocketAddress()});
@@ -237,7 +237,11 @@ public class ServerMain extends Thread{
                     }
 
                     if (contador == 3){
-                        System.out.println("-> Demasiados intentos.");
+                        System.err.println("-> Demasiados intentos.");
+                        //La idea sería identificar la IP del que se intenta registrar, pero
+                        //aún no he localizado una manera de solucionarlo.
+                        LOGGER.log(Level.WARNING, "El login se ha anulado por "
+                                + "demasiados intentos {0}", skClient.getRemoteSocketAddress());
                         enviarN(3);
                         salir = true;
                     }
@@ -277,20 +281,22 @@ public class ServerMain extends Thread{
                         }
                         
                         if (existe){
-                            enviarB(true); //Indicamos que sí existe y salimos del bucle
+                            enviarN(0); //Indicamos que sí existe y salimos del bucle
                             System.out.println("-> El archivo existe.");
                             salir = true;
                         } else {
                             contador++;
-                            enviarB(false); //Indicamos que no existe
+                            
                             System.err.println("-> El archivo no existe.");
                             
-                            
                             if (contador < 3){
+                                enviarN(1); //Indicamos que no existe
                                 System.out.println("-> Introduzca otro nombre de archivo.");
                             }
                             if (contador == 3){
                                 System.out.println("-> Demasiados intentos.");
+                                LOGGER.log(Level.WARNING, "¡¡Demasiados intentos!! (Envío anulado)");
+                                enviarN(3); //Indicamos demasiados intentos
                                 salir = true;
                             }
                         }
@@ -319,6 +325,7 @@ public class ServerMain extends Thread{
                         flujo_salida.flush();
                     }
                     System.out.println("-> Enviado archivo solicitado");
+                    LOGGER.log(Level.INFO, "Enviado archivo {0}", archivo.getName());
                 }
             }
             
@@ -341,12 +348,17 @@ public class ServerMain extends Thread{
                         validado = user.comprobacionRegistro();
 
                         if (validado){ //Si hay un user con ese nombre se valida (true)
-                            enviarB(false);
+                            
+                            if (contador <3){
+                                enviarN(1);
+                                System.out.println("-> Ya existe el usuario");
+                            } 
+                            
                         } else {
                             String registro = usuario + ";" + pass + ";" + "1" + "\n";
                             Registro nuevo = new Registro (registro);
                             LOGGER.log(Level.INFO, "Nuevo usuario registrado {0}", usuario);
-                            enviarB(true);
+                            enviarN(0);
                             //Salimos del bucle y cerramos conexiones
                             paso = true;
                             salir = true;
@@ -360,7 +372,9 @@ public class ServerMain extends Thread{
                 } while ((contador <3)&(!paso));
                 
                 if (contador == 3){
-                    System.out.println("-> Demasiados intentos.");
+                    enviarN(3);
+                    System.err.println("-> Demasiados intentos.");
+                    LOGGER.log(Level.WARNING, "¡¡Demasiados intentos!! (Registro anulado)");
                     salir = true;
                 }
             }
