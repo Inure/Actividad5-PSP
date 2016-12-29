@@ -282,6 +282,7 @@ public class ClientMain {
                         System.out.print("-> Introduce el nombre del archivo que "
                                 + "quieres leer o escribe (n/N) para salir: ");
                         archivo = entrada.nextLine();
+                        archivo = entrada.next();
 
                         if (archivo.toUpperCase().matches("N")){
                             System.out.println("Saliendo del programa ....");
