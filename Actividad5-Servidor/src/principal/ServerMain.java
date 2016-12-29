@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.function.Supplier;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,6 +49,7 @@ public class ServerMain extends Thread{
     static int nCli = 0;
     int opcion, contador = 0;
     boolean validado = false, siNO = false, existe = false, paso = false, salir = false;
+    boolean reg = false;
     String usuario, pass, directorio, fichero;
     File [] listaArchivos;
     //*************************************
@@ -174,7 +174,7 @@ public class ServerMain extends Thread{
             }
         } catch (IOException ex){
             System.err.println(ex);
-            LOGGER.log(Level.WARNING, "Error detectado "+ex);
+            LOGGER.log(Level.WARNING, "Error detectado {0}", ex);
         }
     }
 
@@ -193,6 +193,7 @@ public class ServerMain extends Thread{
             switch (opcion){
                 case 1:
                     System.out.println("-> Registro de usuario nuevo");
+                    reg = true;
                     break;
                 case 2:
                     System.out.println("-> El usuario desea logear");
@@ -217,7 +218,7 @@ public class ServerMain extends Thread{
                         if (validado){
                             enviarN(0);
                             System.out.println("-> Login correcto.");
-                            LOGGER.log(Level.INFO, "Usuario registrado "+ usuario);
+                            LOGGER.log(Level.INFO, "Usuario registrado {0}", usuario);
 
                             //Seleccionamos la carpeta según tipo de usuario
                             directorio = directorioUsuario(user.getTipo());
@@ -225,8 +226,8 @@ public class ServerMain extends Thread{
                         } else {
                             System.out.println("-> Login incorrecto.");
                             enviarN(1);
-                            LOGGER.log(Level.WARNING, "->Intento de Log fallido ("+ 
-                                    usuario + skClient.getRemoteSocketAddress()+")");
+                            LOGGER.log(Level.WARNING, "->Intento de Log fallido"
+                                    + " ({0}{1})", new Object[]{usuario, skClient.getRemoteSocketAddress()});
                         }
 
                     } else {
@@ -278,13 +279,14 @@ public class ServerMain extends Thread{
                         if (existe){
                             enviarB(true); //Indicamos que sí existe y salimos del bucle
                             System.out.println("-> El archivo existe.");
+                            salir = true;
                         } else {
                             contador++;
                             enviarB(false); //Indicamos que no existe
-                            System.out.println("-> El archivo no existe.");
+                            System.err.println("-> El archivo no existe.");
                             
                             
-                            if (contador<3){
+                            if (contador < 3){
                                 System.out.println("-> Introduzca otro nombre de archivo.");
                             }
                             if (contador == 3){
@@ -320,8 +322,51 @@ public class ServerMain extends Thread{
                 }
             }
             
+            if (reg){
+                
+                //Inicializo el paso y el contador
+                paso = false;
+                contador = 0;
+                
+                do {
+                    contador++; 
+                    
+                    //Leemos los datos enviados por el cliente
+                    usuario = flujo_entrada.readUTF();
+                    pass = flujo_entrada.readUTF();
+
+                    if (!usuario.equalsIgnoreCase("n")){
+
+                        ValidarUsuario user = new ValidarUsuario (usuario, pass);
+                        validado = user.comprobacionRegistro();
+
+                        if (validado){ //Si hay un user con ese nombre se valida (true)
+                            enviarB(false);
+                        } else {
+                            String registro = usuario + ";" + pass + ";" + "1" + "\n";
+                            Registro nuevo = new Registro (registro);
+                            LOGGER.log(Level.INFO, "Nuevo usuario registrado {0}", usuario);
+                            enviarB(true);
+                            //Salimos del bucle y cerramos conexiones
+                            paso = true;
+                            salir = true;
+                        }
+                    } else {
+                        System.out.println("-> Anulado el registro");
+                        paso = true;
+                        salir = true;
+                    }
+                    
+                } while ((contador <3)&(!paso));
+                
+                if (contador == 3){
+                    System.out.println("-> Demasiados intentos.");
+                    salir = true;
+                }
+            }
+            
             if (salir){
-                System.out.println("-> Cerramos la conexión del Cliente "+nCli);
+                System.out.println("-> Cerramos la conexión");
                 cierreConexion();
             }
             

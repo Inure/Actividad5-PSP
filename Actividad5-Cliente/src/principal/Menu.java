@@ -40,7 +40,6 @@ public class Menu {
     public void espacioBlanco(){
         System.out.println(" ");
         System.out.println(" ");
-        System.out.println(" ");
     }
     
 

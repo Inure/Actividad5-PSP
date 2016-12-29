@@ -31,8 +31,8 @@ public class ValidarUsuario {
         boolean validado = false;
         //Distingue entre mayúsculas y minúsculas, aunque con el patrón de entrada
         //no importa
-        Predicate<String> user = linea -> linea.contains(nombre + ";" + pass + ";");
-        String usuario = nombre+";"+pass+";";
+        String usuario = nombre + ";" + pass + ";";
+        Predicate<String> user = linea -> linea.contains(usuario);
         
         try (Stream<String> stream = Files.lines(Paths.get(fichero))){
             
@@ -61,7 +61,25 @@ public class ValidarUsuario {
         }
         return validado;
     }
-
+    
+    public boolean comprobacionRegistro (){
+        boolean validado = false;
+        //Distingue entre mayúsculas y minúsculas, aunque con el patrón de entrada
+        //no importa
+        String usuario = nombre + ";";
+        Predicate<String> user = linea -> linea.contains(usuario);
+        
+        try (Stream<String> stream = Files.lines(Paths.get(fichero))){
+            
+            if (stream.anyMatch(user)){
+                validado = true;
+            }
+        } catch (Exception ex){
+            System.err.println(ex);
+        }
+        return validado;
+    }
+    
     /**
      * @return the tipo
      */

@@ -151,10 +151,10 @@ public class ClientMain {
                         break;
                     default:
                         menu.espacioBlanco();
-                        System.out.println("Opción incorrecta.");
+                        System.err.println("Opción incorrecta.");
                         
                         if (contador == 3){
-                            System.out.println("-> Demasiados intentos");
+                            System.err.println("-> Demasiados intentos");
                             paso = true;
                             salir = true;
                         } else {
@@ -224,11 +224,11 @@ public class ClientMain {
                                     paso = true;
                                     break;
                                 case 1:
-                                    System.out.println("-> Usuario/Contraseña incorrectos");
+                                    System.err.println("-> Usuario/Contraseña incorrectos");
                                     LOGGER.log(Level.WARNING,"Error en la validación");
                                     break;
                                 default:
-                                    System.out.println("-> Demasiados intentos.");
+                                    System.err.println("-> Demasiados intentos.");
                                     System.out.println(" ");
                                     System.out.println("Saliendo....");
                                     LOGGER.log(Level.WARNING, "¡¡Demasiados intentos!!");
@@ -276,12 +276,11 @@ public class ClientMain {
                     
                     //Iniciamos el contador para los patrones del nombre
                     contador = 0;
-                    Thread.sleep(500);
+                    Thread.sleep(250);
                     
                     do {
                         System.out.print("-> Introduce el nombre del archivo que "
                                 + "quieres leer o escribe (n/N) para salir: ");
-                        archivo = entrada.nextLine();
                         archivo = entrada.next();
 
                         if (archivo.toUpperCase().matches("N")){
@@ -308,10 +307,8 @@ public class ClientMain {
                                 existe = flujo_entrada.readBoolean();
 
                                 if (existe){
-                                    contador = 5;
+                                    contador = 4;
                                 } else {
-                                    contador++;
-                                            
                                     System.out.println(" ");
                                     System.out.println("** El archivo no existe.");
                                 }
@@ -321,10 +318,10 @@ public class ClientMain {
                                 System.out.println("-> No concuerda con el patrón.");
                                 LOGGER.log(Level.WARNING, "No concuerda patrón del nombre de archivo");
 
-                                if (contador <= 3){
+                                if (contador < 3){
                                     System.out.println("-> Por favor, vuelva a introducir sus datos.");
                                 }
-                                if (contador > 3){
+                                if (contador == 3){
                                     System.out.println("-> Demasiados intentos.");
                                     enviarB(false);
                                     LOGGER.log(Level.WARNING, "¡¡Demasiados intentos!!");
@@ -332,7 +329,7 @@ public class ClientMain {
                             }
                         }
 
-                    } while (contador<=3);
+                    } while (contador<3);
                     
                     if (existe){
                         //El servidor nos ha dicho que existe y nos preparamos para
@@ -374,16 +371,76 @@ public class ClientMain {
                 //Le comunicamos la opción deseada al servidor
                 enviarN(opcion);
                 
-                menu.registro();
-                System.out.println("Introduzca el usuario que desea (8 letras minúsculas): ");
-                System.out.println("Introduzca su contraseña: ");
+                //Iniciamos contador
+                contador = 0;
+                paso = false;
+                
+                //Asignamos el patrón del usuario
+                patron = Pattern.compile("[a-z]{8}");
+                
+                do {      
+                    contador++;
+                    
+                    menu.registro();
+                    
+                    System.out.print("Introduzca el usuario que desea (8 letras "
+                            + "minúsculas) o n/N para salir: ");
+                    usuario = entrada.next();
+                    
+                    if (!usuario.equalsIgnoreCase("n")){
+                        
+                        //Comprobamos el patron
+                        mat = patron.matcher(usuario);
+
+                        if (mat.find()){ //Si coincide el patrón
+                            
+                            //Solicitamos la contraseña
+                            System.out.print("Introduzca su contraseña: ");
+                            pass = entrada.next();
+                            
+                            //Enviamos los datos
+                            enviarT(usuario);
+                            Encriptado passE = new Encriptado(pass);
+                            String encrip = passE.codificar();
+                            enviarT(encrip);
+                            paso = flujo_entrada.readBoolean();
+                            
+                            if (!paso){
+                                System.out.println("-> Usuario ya registrado.");
+                                System.out.println("-> Introduzca otro usuario");
+                            }
+
+                        } else {
+                                
+                            System.out.println(" ");
+                            System.out.println("-> No concuerda con el patrón.");
+                            LOGGER.log(Level.WARNING, "No concuerda patrón del nombre de usuario (Registro)");
+
+                            if (contador < 3){
+                                System.out.println("-> Por favor, vuelva a introducir sus datos.");
+                            }
+                            if (contador == 3){
+                                System.out.println("-> Demasiados intentos.");
+                                enviarT("n");
+                                enviarT("salir");
+                                LOGGER.log(Level.WARNING, "¡¡Demasiados intentos!! (Registro)");
+                                paso = true;
+                            }
+                        }
+                    } else {
+                        System.out.println("Saliendo....");
+                        enviarT("n");
+                        enviarT("salir");
+                        paso = true;
+                    }
+                    
+                } while (!paso);
+                
+                System.out.println("-> Cerramos conexión.");
                 cierreConexion();
-            }
+            }   
             
-        } catch (IOException ex) {
-            System.err.println(ex);
-            Logger.getLogger(ClientMain.class.getName()).log(Level.SEVERE, null, ex);
-        }  catch (InterruptedException ex) {
+        } catch (IOException | InterruptedException ex) {
             System.err.println(ex);
             Logger.getLogger(ClientMain.class.getName()).log(Level.SEVERE, null, ex);
         }
